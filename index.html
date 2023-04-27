@@ -1,17 +1,76 @@
+<script type="text/javascript">
+function newSite(obj) {
+    var id = obj.id; // recupera l'id dell'oggetto
+    document.getElementById('descriptionFrame').src = './' + id + '.html';
+}    
+</script>
+
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Bioinformatics group</title>
-  <style>  
+  <head>
+	<title>Bioinformatics group</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+      }
+	  
+      #container {
+        display: flex;
+        height: 100%;
+        width: 100%;
+      }
+	  
+      #col1, #col2, #col3 {
+        height: 100%;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      #col1, #col3 {
+        width: 20%;
+        background-color: #eee;
+      }
+      #col2 {
+        display: flex;
+        flex-direction: column;
+        width: 60%;
+        background-color: #ccc;
+      }
+      #row1, #row2 {
+        width: 100%;
+        height: 50%;
+      }
+      #row1 {
+        background-color: #aaa;
+      }
+      #row2 {
+        background-color: #888;
+        height: 80%;
+      }
+	  
     .intro {
       text-align: center;
-      margin-top: 100px;
+      margin-top: 30px;
       font-size: 36px;
       font-weight: bold;
     }
+	
+	.button-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
 
-/* Definizione dei colori per i bottoni (rimane lo stesso) */
-    .button1 {
+    .button {
+      flex-basis: calc(20% - 20px);
+      margin: 10px;
+      padding: 10px;
+      text-align: center;
+      font-weight: bold;
+    }
+	
+	.button1 {
       background-color: red;
       border: 2px solid #000;
       color: #fff;
@@ -40,26 +99,8 @@
       border: 2px solid #000;
       color: #fff;
     }
-
-     /* Creazione di una griglia per disporre i bottoni al centro della pagina */
-    .button-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh; /* Imposta l'altezza della griglia al 100% dell'altezza della finestra del browser */
-    }
-
-    .button {
-      flex-basis: calc(20% - 20px);
-      margin: 10px;
-      padding: 10px;
-      text-align: center;
-      font-weight: bold;
-    }
-
-
-    /* Posizionamento delle immagini */
-    .image-container {
+	
+	.image-container {
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
@@ -71,12 +112,12 @@
     }
 
     .large-image {
-      max-width: 300px;
+      max-width: 350px;
       height: auto;
     }
 
     .small-image {
-      max-width: 50px;
+      max-width: 10px;
       height: auto;
       position: absolute;
       top: 0;
@@ -84,74 +125,74 @@
       margin-top: 20px;
       margin-left: 20px;
     }
-  </style>
-</head>
-<body>
-  <h1 class="intro">Hi 👋, we are the Bioinformatics unit of IRCCS Centro Neurolesi Bonino-Pulejo</h1>
-  <div class="button-container">
-  	  <div>
-		<a href="/biografia.html" target="_blank">
-			<div class="button button1">Chi siamo</div>
-		</a>
-		<a href="/lavori.html" target="_blank">
-			<div class="button button2">I nostri lavori</div>
-		</a>
-		<a href="/tools.html" target="_blank">
-			<div class="button button3">I nostri tools</div>
-  	  </div>
-  	  <div>	  
-		<a href="/perspectives.html" target="_blank">
-			<div class="button button4">I nostri progetti futuri</div>
-		</a>
-		<a href="/phds.html" target="_blank">
-			<div class="button button5">Progetti PhD in corso</div>
-		</a>
-  	  </div>
-  </div>
-  <div class="image-container">
-    <img src="/Images/Dino.png" alt="Dino" class="large-image" />
-  </div>
-  <div align="left" class="small-image">
-	<p>
-		<a href="https://developer.android.com" target="_blank" rel="noreferrer">
-		  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/android/android-original-wordmark.svg" alt="android" width="40" height="40"/>
-		</a>
-	</p>
-	<p>
-		<a href="https://www.arduino.cc/" target="_blank" rel="noreferrer">
-		  <img src="https://cdn.worldvectorlogo.com/logos/arduino-1.svg" alt="arduino" width="40" height="40"/>
-		</a>
-    </p>
-	<p>
-		<a href="https://www.gnu.org/software/bash/" target="_blank" rel="noreferrer">
-		  <img src="https://www.vectorlogo.zone/logos/gnu_bash/gnu_bash-icon.svg" alt="bash" width="40" height="40"/>
-		</a>
-    </p>
-	<p>
-		<a href="https://www.linux.org/" target="_blank" rel="noreferrer">
-		  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/linux/linux-original.svg" alt="linux" width="40" height="40"/>
-		</a>
-    </p>
-	<p>
-		<a href="https://www.mysql.com/" target="_blank" rel="noreferrer">
-		  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/mysql/mysql-original-wordmark.svg" alt="mysql" width="40" height="40"/>
-		</a>
-    </p>
-	<p>
-		<a href="https://pandas.pydata.org/" target="_blank" rel="noreferrer">
-		  <img src="https://raw.githubusercontent.com/devicons/devicon/2ae2a900d2f041da66e950e4d48052658d850630/icons/pandas/pandas-original.svg" alt="pandas" width="40" height="40"/>
-		</a>
-    </p>
-	<p>
-		<a href="https://www.python.org" target="_blank" rel="noreferrer">
-		  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="python" width="40" height="40"/>
-		</a>
-    </p>
-	<p>
-		<a href="https://seaborn.pydata.org/" target="_blank" rel="noreferrer">
-		  <img src="https://seaborn.pydata.org/_images/logo-mark-lightbg.svg" alt="seaborn" width="40" height="40"/>
-		</a>
-	</p>
-  </div>
-</body>
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div id="col1">
+		  <div align="left" class="small-image">
+			<p>
+				<a href="https://developer.android.com" target="_blank" rel="noreferrer">
+				  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/android/android-original-wordmark.svg" alt="android" width="40" height="40"/>
+				</a>
+			</p>
+			<p>
+				<a href="https://www.arduino.cc/" target="_blank" rel="noreferrer">
+				  <img src="https://cdn.worldvectorlogo.com/logos/arduino-1.svg" alt="arduino" width="40" height="40"/>
+				</a>
+			</p>
+			<p>
+				<a href="https://www.gnu.org/software/bash/" target="_blank" rel="noreferrer">
+				  <img src="https://www.vectorlogo.zone/logos/gnu_bash/gnu_bash-icon.svg" alt="bash" width="40" height="40"/>
+				</a>
+			</p>
+			<p>
+				<a href="https://www.linux.org/" target="_blank" rel="noreferrer">
+				  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/linux/linux-original.svg" alt="linux" width="40" height="40"/>
+				</a>
+			</p>
+			<p>
+				<a href="https://www.mysql.com/" target="_blank" rel="noreferrer">
+				  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/mysql/mysql-original-wordmark.svg" alt="mysql" width="40" height="40"/>
+				</a>
+			</p>
+			<p>
+				<a href="https://pandas.pydata.org/" target="_blank" rel="noreferrer">
+				  <img src="https://raw.githubusercontent.com/devicons/devicon/2ae2a900d2f041da66e950e4d48052658d850630/icons/pandas/pandas-original.svg" alt="pandas" width="40" height="40"/>
+				</a>
+			</p>
+			<p>
+				<a href="https://www.python.org" target="_blank" rel="noreferrer">
+				  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="python" width="40" height="40"/>
+				</a>
+			</p>
+			<p>
+				<a href="https://seaborn.pydata.org/" target="_blank" rel="noreferrer">
+				  <img src="https://seaborn.pydata.org/_images/logo-mark-lightbg.svg" alt="seaborn" width="40" height="40"/>
+				</a>
+			</p>
+		  </div>
+	  </div>
+      <div id="col2">
+        <div id="row1">
+			<h1 class="intro">Hi 👋<br/>We are the Bioinformatics unit<br/>of<br/>IRCCS Centro Neurolesi Bonino-Pulejo</h1>
+			<div class="button-container">
+				<div id="weare" class="button button1" onClick="newSite(this)">Chi siamo</div>
+				<div id="works" class="button button2" onClick="newSite(this)">I nostri lavori</div>
+				<div id="tools" class="button button3" onClick="newSite(this)">I nostri tools</div>
+				<div id="perspectives" class="button button4" onClick="newSite(this)">I nostri progetti futuri</div>
+				<div id="phds" class="button button5" onClick="newSite(this)">Progetti PhD in corso</div>
+			</div>
+		</div>
+        <div id="row2">
+			<iframe id="descriptionFrame" style="top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%; border:none; margin:0; padding:0; overflow:hidden; z-index:999999;">Error in the description</iframe> </body>
+		</div>
+      </div>
+      <div id="col3">	  
+		<div class="image-container">
+			<img src="./Images/Dino.png" alt="Dino" class="large-image" />
+		</div>
+	  </div>
+    </div>
+  </body>
 </html>
