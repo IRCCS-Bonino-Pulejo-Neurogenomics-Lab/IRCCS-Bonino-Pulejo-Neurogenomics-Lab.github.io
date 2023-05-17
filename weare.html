@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Titolo della pagina</title>
+    <title>We are</title>
     <style>
 	  a {
 		text-decoration: none;
@@ -10,48 +10,59 @@
       body {
         margin: 0;
         padding: 0;
+	    background-color: rgba(0, 180, 255, 0.5);
       }
-	  
-      .row {
-        display: flex;
-        flex-direction: row;
-        #height: 33.33vh;
-        width: 100%;
-      }
-      
-	  .col {
-        height: 100%;
-        box-sizing: border-box;
-        padding: 10px;
-      }
-      
-	  .col1 {
-        width: 30%;
-        background-color: #ccc;
-      }
-      
-	  .col2 {
-        width: 70%;
-        background-color: #eee;
-      }
-      
+	  .row {
+		  display: grid;
+		  grid-template-columns: 20% 80%;
+		  width: 100%;
+		}
+
+		.col {
+		  box-sizing: border-box;
+		}
+
+		.col1 {
+		  align-self: stretch;
+		  background-color: rgba(0, 120, 220, 1);
+		}
+
+		.col2 {
+		  align-self: stretch;
+		  background-color: rgba(255, 255, 255, 0.5);
+		}
 	  img {
         max-width: 100%;
         max-height: 100%;
         object-fit: contain;
       }
+	  
+	  .image-container {
+		overflow: hidden; /* Impedisce l'overflow dell'immagine */
+	  }
+    
+    .image-container img {
+	  width: 100%;
+	  height: auto;
+	  object-fit: contain; /* Imposta l'adattamento dell'immagine */
+	  min-width: 100%; /* Imposta la larghezza minima al 100% */
+    }
     </style>
   </head>
   <body>
     <div class="row">
-      <div class="col col1"><img src="immagine1.jpg"></div>
+      <div class="col col1 image-container">
+		<img src="./Images/io.jpg">
+	  </div>
       <div class="col col2">
         <p><b>Nome:</b> Luigi Chiricosta</p>
 	<p><b>E-mail:</b> luigi.chiricosta@irccsme.it</p>
 	<p><b>Ruolo:</b> Ricercatore Sanitario</p>
-        <p><b>Laurea magistrale:</b> Bioinformatics - Alma Mater Studiorum (Bologna)</p>
-        <p><b>Laurea triennale:</b> Informatica - UniMe (Messina)</p>
+        <p><b>PhD:</b> Data Science &#x2014; Tor Vergata (Roma)</p>
+        <p><b>Laurea magistrale:</b> Bioinformatics &#x2014; Alma Mater Studiorum (Bologna)</p>
+        <p><b>Laurea triennale:</b> Informatica &#x2014; UniMe (Messina)</p>
         <p><b>H-index:</b> 8</p>
+        <!--<p><b>Personal page:</b> <a href="https://luigichiricosta.github.io/" target="_blank"><u>https://luigichiricosta.github.io</u></a></p>-->
 	<a href="https://orcid.org/0000-0003-0358-7348" target="_blank">
 		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 74 72" width="24" height="24" role="img" aria-hidden="true" alt="ORCID">
 			<g fill="none" fill-rule="nonzero">
@@ -82,13 +93,16 @@
       </div>
     </div>
     <div class="row">
-      <div class="col col1"><img src="immagine2.jpg"></div>
+      <div class="col col1 image-container">
+		<img src="./Images/simone.jpg">
+	  </div>
       <div class="col col2">
         <p><b>Nome:</b> Simone D'Angiolini</p>
 		<p><b>E-mail:</b> simone.dangiolini@irccsme.it</p>
         <p><b>Ruolo:</b> Studente PhD</p>
-        <p><b>Laurea magistrale:</b> Bioinformatica - Tor Vergata (Roma)</p>
-        <p><b>Laurea triennale:</b> Biologia - UniMe (Messina)</p>
+        <p><b>PhD:</b> Innovation techonologies in biomedicine &#x2014; Università di Chieti-Pescara (Chieti)</p>
+        <p><b>Laurea magistrale:</b> Bioinformatica &#x2014; Tor Vergata (Roma)</p>
+        <p><b>Laurea triennale:</b> Biologia &#x2014; UniMe (Messina)</p>
         <p><b>H-index:</b> 1</p>
 		<a href="https://orcid.org/0000-0002-1287-6400" target="_blank">
 			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" width="24" height="24" role="img" aria-hidden="true" alt="ORCID">

@@ -29,23 +29,23 @@ function newSite(obj) {
       }
       #col1, #col3 {
         width: 20%;
-        background-color: #eee;
+		background-color: rgba(0, 120, 255, 0.3);
       }
       #col2 {
         display: flex;
         flex-direction: column;
         width: 60%;
-        background-color: #ccc;
+		background-color: rgba(0, 120, 220, 1);
       }
       #row1, #row2 {
         width: 100%;
         height: 50%;
       }
       #row1 {
-        background-color: #aaa;
+        background-color: #ffffff;
       }
       #row2 {
-        background-color: #888;
+		background-color: rgba(255, 255, 255, 0.8);
         height: 80%;
       }
 	  
@@ -71,32 +71,32 @@ function newSite(obj) {
     }
 	
 	.button1 {
-      background-color: red;
-      border: 2px solid #000;
+	  background-color: rgba(0, 120, 255, 1);
+      border: 3px solid #00f;
       color: #fff;
     }
 
     .button2 {
-      background-color: green;
-      border: 2px solid #000;
+	  background-color: rgba(0, 120, 255, 0.7);
+      border: 3px solid #00f;
       color: #fff;
     }
 
     .button3 {
-      background-color: blue;
-      border: 2px solid #000;
+	  background-color: rgba(0, 120, 255, 1);
+      border: 3px solid #00f;
       color: #fff;
     }
 
     .button4 {
-      background-color: yellow;
-      border: 2px solid #000;
-      color: #000;
+	  background-color: rgba(0, 120, 255, 0.7);
+      border: 3px solid #00f;
+      color: #fff;
     }
 
     .button5 {
-      background-color: purple;
-      border: 2px solid #000;
+	  background-color: rgba(0, 120, 255, 1);
+      border: 3px solid #00f;
       color: #fff;
     }
 	
@@ -124,6 +124,25 @@ function newSite(obj) {
       left: 0;
       margin-top: 20px;
       margin-left: 20px;
+    }
+		
+	.landscape {
+      background-image: url("./Images/landscape.jpg");
+      background-size: 100% 100%;
+      background-repeat: no-repeat;
+      width: 700px;
+      height: 300px;
+      background-color: rgba(0, 0, 0, 0.5); /* Imposta il colore di sfondo con opacità */
+    }
+	
+	.mascotte {
+      background-image: url("./Images/Dino.png");
+      background-size: 100% auto;
+      background-repeat: no-repeat;
+	  background-position: center center;
+      width: 700px;
+      height: 300px;
+      background-color: rgba(0, 0, 0, 0.3);
     }
     </style>
   </head>
@@ -184,13 +203,12 @@ function newSite(obj) {
 				<div id="phds" class="button button5" onClick="newSite(this)">Progetti PhD in corso</div>
 			</div>
 		</div>
-        <div id="row2">
+        <div id="row2" class="landscape">
 			<iframe id="descriptionFrame" style="top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%; border:none; margin:0; padding:0; overflow:hidden; z-index:999999;">Error in the description</iframe> </body>
 		</div>
       </div>
-      <div id="col3">	  
+      <div id="col3" class="mascotte">	  
 		<div class="image-container">
-			<img src="./Images/Dino.png" alt="Dino" class="large-image" />
 		</div>
 	  </div>
     </div>
