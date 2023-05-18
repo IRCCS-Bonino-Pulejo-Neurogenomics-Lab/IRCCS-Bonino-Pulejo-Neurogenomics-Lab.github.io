@@ -1,7 +1,26 @@
 <script type="text/javascript">
+function resetButtons() {
+	var buttons = document.getElementsByClassName("button");	
+	for (var i = 0; i < buttons.length; i++) {
+		buttons[i].classList.remove("selected");
+	}
+}    
+
 function newSite(obj) {
-    var id = obj.id; // recupera l'id dell'oggetto
-    document.getElementById('descriptionFrame').src = './' + id + '.html';
+    var id = obj.id;
+	var buttons = document.getElementsByClassName("button");
+	
+	if(document.getElementById(id).classList.contains("selected"))
+	{	
+		document.getElementById('descriptionFrame').src = '';
+		resetButtons();
+	}
+	else
+	{
+		document.getElementById('descriptionFrame').src = './' + id + '.html';
+		resetButtons();
+		document.getElementById(id).classList.add("selected");
+	}
 }    
 </script>
 
@@ -24,7 +43,7 @@ function newSite(obj) {
 	  
       #col1, #col2, #col3 {
         height: 100%;
-        padding: 20px;
+        padding: 0.5%;
         box-sizing: border-box;
       }
       #col1, #col3 {
@@ -43,6 +62,7 @@ function newSite(obj) {
       }
       #row1 {
         background-color: #ffffff;
+		overflow: auto;
       }
       #row2 {
 		background-color: rgba(255, 255, 255, 0.8);
@@ -65,40 +85,21 @@ function newSite(obj) {
     .button {
       flex-basis: calc(20% - 20px);
       margin: 10px;
-      padding: 10px;
+	  border: none;
+	  border-radius: 20px;
+	  padding: 10px 20px;
       text-align: center;
       font-weight: bold;
+	  background-color: rgba(0, 120, 255, 1);
+      border: 3px solid #00f;
+      color: #fff;
     }
 	
-	.button1 {
-	  background-color: rgba(0, 120, 255, 1);
+	.button.selected {
+	  background-color: #fff;
       border: 3px solid #00f;
-      color: #fff;
-    }
-
-    .button2 {
-	  background-color: rgba(0, 120, 255, 0.7);
-      border: 3px solid #00f;
-      color: #fff;
-    }
-
-    .button3 {
-	  background-color: rgba(0, 120, 255, 1);
-      border: 3px solid #00f;
-      color: #fff;
-    }
-
-    .button4 {
-	  background-color: rgba(0, 120, 255, 0.7);
-      border: 3px solid #00f;
-      color: #fff;
-    }
-
-    .button5 {
-	  background-color: rgba(0, 120, 255, 1);
-      border: 3px solid #00f;
-      color: #fff;
-    }
+	  color: #00f;
+	}
 	
 	.image-container {
       display: flex;
@@ -128,8 +129,9 @@ function newSite(obj) {
 		
 	.landscape {
       background-image: url("./Images/landscape.jpg");
-      background-size: 100% 100%;
+      background-size: 100% auto;
       background-repeat: no-repeat;
+	  background-position: center center;
       width: 700px;
       height: 300px;
       background-color: rgba(0, 0, 0, 0.5); /* Imposta il colore di sfondo con opacità */
@@ -196,11 +198,11 @@ function newSite(obj) {
         <div id="row1">
 			<h1 class="intro">Hi 👋<br/>We are the Bioinformatics unit<br/>of<br/>IRCCS Centro Neurolesi Bonino-Pulejo</h1>
 			<div class="button-container">
-				<div id="weare" class="button button1" onClick="newSite(this)">Chi siamo</div>
-				<div id="works" class="button button2" onClick="newSite(this)">I nostri lavori</div>
-				<div id="tools" class="button button3" onClick="newSite(this)">I nostri tools</div>
-				<div id="perspectives" class="button button4" onClick="newSite(this)">I nostri progetti futuri</div>
-				<div id="phds" class="button button5" onClick="newSite(this)">Progetti PhD in corso</div>
+				<div id="weare" class="button" onClick="newSite(this)">WhoAmI</div>
+				<div id="phds" class="button" onClick="newSite(this)">Running PhD projects</div>
+				<!--<div id="works" class="button" onClick="newSite(this)">Our pubblications</div>
+				<div id="tools" class="button" onClick="newSite(this)">Our tools</div>-->
+				<div id="perspectives" class="button" onClick="newSite(this)">Future perspectives</div>
 			</div>
 		</div>
         <div id="row2" class="landscape">
