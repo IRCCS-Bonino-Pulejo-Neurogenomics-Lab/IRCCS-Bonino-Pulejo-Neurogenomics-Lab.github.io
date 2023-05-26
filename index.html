@@ -17,7 +17,7 @@ function newSite(obj) {
 	}
 	else
 	{
-		document.getElementById('descriptionFrame').src = './' + id + '.html';
+		document.getElementById('descriptionFrame').src = './frames/' + id + '.html';
 		resetButtons();
 		document.getElementById(id).classList.add("selected");
 	}
@@ -48,35 +48,35 @@ function newSite(obj) {
         box-sizing: border-box;
       }
       #col1, #col3 {
-        width: 20%;
+        width: 10%;
       }
       #col2 {
         display: flex;
         flex-direction: column;
-        width: 60%;
+        width: 80%;
 		background-color: rgba(0, 120, 220, 1);
       }
       #row1, #row2 {
         width: 100%;
-        height: 50%;
       }
       #row1 {
         background-color: #ffffff;
-	overflow: auto;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	flex-direction: column;
+		overflow: auto;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		flex-direction: column;
+        height: 45%;
       }
       #row2 {
-	background-color: rgba(255, 255, 255, 0.8);
-        height: 80%;
+		background-color: rgba(255, 255, 255, 0.8);
+        height: 100%;
       }
 	  
     .intro {
       text-align: center;
       margin-top: 30px;
-      font-size: 180%;
+      font-size: 200%;
       font-weight: bold;
     }
 	
