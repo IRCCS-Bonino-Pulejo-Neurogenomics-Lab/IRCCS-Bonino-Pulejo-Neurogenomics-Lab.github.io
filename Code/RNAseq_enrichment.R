@@ -1,0 +1,878 @@
+cran <- 'https://cran.stat.unipd.it/'
+BiocManager.version <- '3.16'
+
+DEG.analysis <- function(data.path, CTR, noCTR, fcs){
+  threshold <- 0.05
+  if(!require(DESeq2)) {
+    if(!require(BiocManager)){
+      install.packages('BiocManager', repos=cran)
+      BiocManager::install(version = BiocManager.version)
+      library(BiocManager)
+    }
+    BiocManager::install('DESeq2')
+    library(DESeq2)
+  }
+  if(!require(EnhancedVolcano)) {
+    if(!require(BiocManager)){
+      install.packages('BiocManager', repos=cran)
+      BiocManager::install(version = BiocManager.version)
+      library(BiocManager)
+    }
+    BiocManager::install('EnhancedVolcano')
+    library(EnhancedVolcano)  
+  }
+  
+  library(ggplot2)
+  library(dplyr)
+  library(stringr)
+
+  print('Preparing environment in:')
+  print(data.path)
+  output.path <- paste(data.path, 'analysis', paste(CTR, noCTR, sep = '_'), sep = '/')
+  plot.path <- paste(output.path, 'Plot', sep = '/')
+  dir.create(plot.path, recursive = TRUE)
+  tables.path <- paste(output.path, 'Tables', 'DEGs', sep = '/')
+  dir.create(tables.path, recursive = TRUE)
+  
+  print('Preparing DESeq2 data...')
+  groups.path <- paste(data.path, 'Groups', sep = '/')
+  
+  count.file.name <- 'Aligned.count.txt'
+  #count.file.name <- 'Aligned.count.gencode.vM28.primary_assembly.annotation.gtf.txt'
+
+  CTR.subpath <- paste(groups.path, CTR, sep = '/') 
+  CTR.subpath.files <- list.files(CTR.subpath)
+  CTR.replicates.numbers <- length(CTR.subpath.files)
+  if(CTR.replicates.numbers == 1) {
+    CTR.files.list <- paste(CTR, count.file.name, sep = '/')
+    CTR.replicates <- rep(CTR.files.list, 2)
+    CTR.sample.name <- c(paste(CTR, c(1:length(CTR.replicates)), sep = ''))
+  } else {
+    CTR.replicates <- c(paste(CTR, CTR.subpath.files, count.file.name, sep = '/'))
+    CTR.sample.name <- sapply(str_split(CTR.replicates, "/"), "[[", 2)
+  }
+  CTR.table <- data.frame(CTR.sample.name, CTR.replicates, as.factor(CTR))
+  colnames(CTR.table) <- c('sampleName', 'fileName', 'condition')
+  
+  noCTR.subpath <- paste(groups.path, noCTR, sep = '/')
+  noCTR.subpath.files <- list.files(noCTR.subpath)
+  noCTR.replicates.numbers <- length(noCTR.subpath.files)
+  if(noCTR.replicates.numbers == 1) {
+    noCTR.files.list <- paste(noCTR, count.file.name, sep = '/')
+    noCTR.replicates <- rep(noCTR.files.list, 2)
+    noCTR.sample.name <- c(paste(noCTR, c(1:length(noCTR.replicates)), sep = ''))
+  } else {
+    noCTR.replicates <- c(paste(noCTR, noCTR.subpath.files, count.file.name, sep = '/'))
+    noCTR.sample.name <- sapply(str_split(noCTR.replicates, "/"), "[[", 2)
+  }
+  noCTR.table <- data.frame(noCTR.sample.name, noCTR.replicates, as.factor(noCTR)) ####
+  colnames(noCTR.table) <- colnames(CTR.table)
+  samples.table <- rbind(CTR.table, noCTR.table)
+  
+  print('Running DESeq2...')
+  dds <- DESeqDataSetFromHTSeqCount(sampleTable = samples.table, directory = groups.path, design= ~ condition)
+  keep <- rowSums(counts(dds)) >= 10 #nrow(samples.table)
+  dds <- dds[keep, ]
+  dds$condition <- relevel(dds$condition, ref = CTR)
+
+  save(CTR, noCTR, dds, samples.table, file=paste(data.path, 'dds.RData', sep='/'))
+  if(CTR.replicates.numbers > 1 && noCTR.replicates.numbers > 1) {
+    print('Plotting PCA')
+    pcaData <- plotPCA(rlog(dds))
+    pcaDataDF <- as.data.frame(pcaData$data)
+    pcaDataDF.merge <- merge(pcaDataDF, samples.table, by.x="name", by.y="sampleName")
+    
+    scale.color.manual.values <- c("#FF4400", "#0044FF") #c("#FFAA00", "#00AAFF")
+    names(scale.color.manual.values) <- c(get("CTR"), get("noCTR"))
+    hjust <- rep(0.5, nrow(pcaDataDF.merge))
+    vjust <- rep(-0.7, nrow(pcaDataDF.merge))
+    
+    PC1.min <- min(pcaDataDF.merge$PC1)
+    PC1.max <- max(pcaDataDF.merge$PC1)
+    PC1.adjust <- ceiling(((PC1.max-PC1.min)*0.15)/10)*10
+    PC1.scale.rounded <- round(seq(PC1.min-PC1.adjust, PC1.max+PC1.adjust))
+    PC1.scale.rounded.scaled <- PC1.scale.rounded[PC1.scale.rounded %% 10 == 0]
+    
+    PC2.min <- min(pcaDataDF.merge$PC2)
+    PC2.max <- max(pcaDataDF.merge$PC2)
+    PC2.adjust <- ceiling(((PC2.max-PC2.min)*0.15)/10)*10
+    PC2.scale.rounded <- round(seq(PC2.min-PC2.adjust, PC2.max+PC2.adjust))
+    PC2.scale.rounded.scaled <- PC2.scale.rounded[PC2.scale.rounded %% 10 == 0]
+    tiff(paste(plot.path, 'PCA.tif', sep = '/'), units='in', width=12, height=10, res=300)
+    p <- pcaDataDF.merge %>% 
+        select(PC1, PC2, group, name) %>% 
+          ggplot(aes(x=PC1, y=PC2, color=as.factor(group)), label=name) +
+          geom_text_repel(aes(label=name), fontface="bold", size=7, hjust=hjust, vjust=vjust) + 
+          geom_point(size=6) + 
+          geom_point(size=6, color="black", pch=21) + 
+	  guides(color = guide_legend(title="Groups: ", override.aes = list(size = 7))) +
+          scale_color_manual(name="Group", labels=c(paste0(toupper(substr(CTR, 1, 1)), substr(CTR, 2, nchar(CTR))), paste0(toupper(substr(noCTR, 1, 1)), substr(noCTR, 2, nchar(noCTR)))), values = scale.color.manual.values) +
+          labs(x=pcaData$labels$x, y=pcaData$labels$y) +
+          scale_x_continuous(limits=c(min(PC1.scale.rounded.scaled), max(PC1.scale.rounded.scaled)), breaks=PC1.scale.rounded.scaled) +
+          scale_y_continuous(limits=c(min(PC2.scale.rounded.scaled), max(PC2.scale.rounded.scaled)), breaks=PC2.scale.rounded.scaled) +
+          theme_classic() + 
+          theme(
+            #panel.grid.major = element_line(linewidth = 0.5, linetype = "dashed", color = "gray80"), linewidth crash
+    	    panel.grid.major = element_line(linetype = "dashed", color = "gray80"),
+            panel.grid.minor = element_blank(),
+            axis.ticks = element_blank(),
+            axis.line = element_blank(),
+            axis.line.x = element_line(colour = "black"),
+            axis.line.y = element_line(colour = "black"),
+            axis.text = element_text(colour="Black", size=22, face="bold"),
+            axis.title = element_text(colour="Black", size=20, face="bold"),
+            legend.background = element_rect(colour="black"),
+            legend.key.size = unit(1, 'cm'),
+            legend.title = element_text(colour="Black", size=22, face="bold"),
+            legend.title.align = 0.5,
+            legend.text = element_text(colour="Black", size=20, face="bold"),
+            legend.spacing.y = unit(0.2, 'cm'),
+	    legend.position = "top"
+            )
+    print(p)
+    dev.off()
+
+    print('Full DESeq')
+    dds <- DESeq(dds)
+  } else {
+    print('Step by step DESeq')
+    dds <- estimateSizeFactors(dds)
+    #dds <- estimateDispersions(dds)
+    dds <- estimateDispersionsGeneEst(dds)
+    dispersions(dds) <- mcols(dds)$dispGeneEst
+    dds <- nbinomWaldTest(dds)
+  }
+  # require(biomaRt)
+  # 
+  # mart <- useMart(dataset = "hsapiens_gene_ensembl", biomart = "ensembl")
+  # ht <- read.csv("/home/biolab/Scrivania/OLD_DASHBOARD/NGS-SCRIPT/Luigi/Python/machine_learning/ADproject/disease/dis433.txt", sep = "\t", header = FALSE)
+  # htf <- ht[1:(nrow(ht)-5), ]
+  # mapping <- getBM(
+  #   attributes = c('ensembl_gene_id', 'ensembl_transcript_id', 'entrezgene_id', 'hgnc_symbol', 'end_position', 'start_position'),
+  #   filters = 'hgnc_symbol',
+  #   values = htf$V1,
+  #   mart = mart
+  # )
+  
+  
+  # rpm <- (assay(dds)*(10^6))/colSums(assay(dds))
+  # 
+  # mapping$length <- mapping$end_position - mapping$start_position
+  # gene.length.df <- unique(mapping %>% select(hgnc_symbol, length))
+  # gene.length <- gene.length.df[, 2]
+  # names(gene.length) <- gene.length.df[, 1]
+  # 
+  # rpkm <- (assay(dds)*(10^3)*(10^6))/(colSums(assay(dds))*gene.length)
+  # tpm <- (rpkm/colSums(rpkm))*(10^6)
+
+  res.corrected <- results(dds, pAdjustMethod = 'BH', alpha=threshold)
+  write.table(res.corrected, file=paste(tables.path, 'gene_minimum_count_list.tsv', sep = '/'), quote=FALSE, sep = '\t', col.names = NA)
+  #write.table(res.corrected, file=paste(tables.path, 'gene_minimum_count_list.tsv', sep = '/'), quote=FALSE, sep = '\t', row.names = FALSE, col.names = TRUE)
+  
+  print('Plotting Volcano...')
+  tiff(paste(plot.path, 'VolcanoPlot.tif', sep = '/'), units='in', width=7, height=9, res=300)
+  print(EnhancedVolcano(res.corrected, lab = rownames(res.corrected), x = 'log2FoldChange', y = 'padj', title=paste(CTR, noCTR, sep = "-"), FCcutoff = 0.7, legendLabSize = 10, legendIconSize = 3.0))
+  dev.off()
+    
+  print('Filtering without thresholds...')
+  norm.counts <- counts(dds, normalized=TRUE)
+  write.table(norm.counts, file=paste(tables.path, 'normalized_counts.tsv', sep = '/'), quote=FALSE, sep = '\t', col.names = NA)
+  
+  norm.counts.CTR <- rowMeans(norm.counts[, which(samples.table$condition==CTR)])
+  norm.counts.noCTR <- rowMeans(norm.counts[, which(samples.table$condition==noCTR)])
+
+  res.final <- subset(data.frame(norm.counts.CTR, norm.counts.noCTR, res.corrected), padj < threshold)
+  res.tableable <- data.frame(cbind(rownames(res.final), round(subset(res.final, select=c('norm.counts.CTR', 'norm.counts.noCTR', 'log2FoldChange')), digits=2), formatC(res.final$padj,format='e',digits=2)))
+  colnames(res.tableable)<-c("Gene", "Control", "no_Control", "Fold_Change", "q-Value")
+  
+  for(fc in fcs){
+    print(paste('Filtering with threshold', fc))
+    fold.change <- fc
+    correct.fc.names <- ''
+    if(fc != 0){
+      correct.fc.names <- paste('_fc', fc, sep = '')
+    }
+
+    res.tableable.fc <- res.tableable[res.tableable$Fold_Change < -fold.change | res.tableable$Fold_Change > fold.change, ]
+
+    write.table(res.tableable.fc, file=paste(tables.path, paste('DEGs', correct.fc.names, '.tsv', sep = ''), sep="/"), quote=FALSE, sep="\t", row.names = FALSE, col.names = TRUE)
+    res.tableable.fc.names <- subset(res.tableable.fc, select=c('Gene'))
+    write.table(res.tableable.fc.names, file=paste(tables.path, paste('DEGs_names', correct.fc.names, '.tsv', sep = ''), sep="/"), quote=FALSE, sep='\t', row.names = FALSE, col.names = TRUE)
+    
+    up.fc <- res.tableable.fc[which(res.tableable.fc$Fold_Change > 0), ]
+    write.table(up.fc, file=paste(tables.path, paste('DEGs_up', correct.fc.names, '.tsv', sep = ''), sep="/"), quote=FALSE, sep="\t", row.names = FALSE, col.names = TRUE)
+    up.fc.names <- subset(up.fc, select=c('Gene'))
+    write.table(up.fc.names, file=paste(tables.path, paste('DEGs_up_names', correct.fc.names, '.tsv', sep = ''), sep='/'), quote=FALSE, sep='\t', row.names = FALSE, col.names = TRUE)
+
+    down.fc <- res.tableable.fc[which(res.tableable.fc$Fold_Change < 0), ]
+    write.table(down.fc, file=paste(tables.path, paste('DEGs_down', correct.fc.names, '.tsv', sep = ''), sep="/"), quote=FALSE, sep="\t", row.names = FALSE, col.names = TRUE)
+    down.fc.names <- subset(down.fc, select=c('Gene'))
+    write.table(down.fc.names, file=paste(tables.path, paste('DEGs_down_names', correct.fc.names, '.tsv', sep = ''), sep="/"), quote=FALSE, sep='\t', row.names = FALSE, col.names = TRUE)
+  }
+}
+
+DEGs.table.from.DEGs.list <- function(DEGs, foldChange = 1){
+  DEGs.data.frame <- data.frame(Control=rep(0, length(DEGs)), 
+                                no_Control=rep(0, length(DEGs)), 
+                                Fold_change=rep(foldChange, length(DEGs)), 
+                                'q-value'=rep(0, length(DEGs)), 
+                                row.names = DEGs)
+  return(DEGs.data.frame)
+}
+
+KEGG.pathway.table.path <- function(DEGs.table.path, output.main.dir = '', prefix = '', maps.sublist = c(), species = 'hsa'){
+  DEGs.table <- read.table(DEGs.table.path, stringsAsFactors = FALSE, header = TRUE, row.names = 1)
+  KEGG.pathway(DEGs.table = DEGs.table, output.main.dir = output.main.dir, prefix = prefix, maps.sublist = maps.sublist, species = species)
+}
+
+KEGG.pathway.print.map <- function(gene.data, map.code, species, output.map.directory, map, type, sleep.time){
+  attempt <- 0
+  while(is.null(map)){
+    #while(is.null(map) || length(map) == 0){
+    #while(is.null(map) || ! is.list(map)){
+    #if(length(map) == 0){ #substitute if with while to try until you reach
+    attempt <- attempt + 1 
+    print(paste('Printing', type, 'map: attempt', attempt))
+    
+    map <- tryCatch(
+      expr = {
+	print('Generating map...')
+        p <- pathview(gene.data = gene.data, 
+                      pathway.id = map.code, 
+                      species = species, 
+                      out.suffix = type, 
+                      kegg.native = T, 
+                      split.group = F, 
+                      expand.node = F, 
+                      map.symbol = T, 
+                      kegg.dir = output.map.directory, 
+                      low = '#aaff55', 
+                      mid = 'yellow',
+                      high = '#ff5555')
+        
+      }, error = function(e){
+	print('Map not generated')
+        print(e)
+	NULL
+      }
+    )
+    
+    if(!is.null(map)){
+      xml <- tryCatch(
+        expr = {
+  	  print('Reading xml...')
+          read_xml(paste(output.map.directory, '/', map.code, '.xml', sep = ''))
+        }, error = function(e){
+	  print('Xml not read')
+          print(e)
+          file.remove(paste(map.code, '.xml', sep = ''))
+	  NULL
+        }
+      )
+    } else {
+    xml <- NULL
+    }
+    
+    tryCatch(
+      expr = {
+        dev.off()
+      }, error = function(e){
+        print(e)
+      }
+    )
+    
+    print('MAP:')
+    print(typeof(map))
+    print('XML')
+    print(typeof(xml))
+    
+    if(is.null(map) || is.null(xml)){
+      print('*** ERROR ***')
+      print(paste('No printable', type, 'map'))
+      if(is.null(map)){ # || !is.list(map)){
+	print('Map issue')
+	map <- list()
+      }
+      else if(is.null(xml)){
+        print('Xml issue')
+        map <- NULL
+      }
+      Sys.sleep(sleep.time)
+    }
+
+    print('Returning value')
+    print(map)
+  }
+}
+
+KEGG.pathway <- function(DEGs.table, output.main.dir, prefix = '', maps.sublist = c(), species = 'hsa'){
+  if(nrow(DEGs.table) != 0){
+    if(!require(KEGGREST)){
+      if(!require(BiocManager)){
+        install.packages('BiocManager', repos=cran)
+        BiocManager::install(version = BiocManager.version)
+        library(BiocManager)
+      }
+      BiocManager::install('KEGGREST')
+      library(KEGGREST)
+    }
+    if(!require(pathview)){
+      if(!require(BiocManager)){
+        install.packages('BiocManager', repos=cran)
+        BiocManager::install(version = BiocManager.version)
+        library(BiocManager)
+      }
+      BiocManager::install('pathview')
+      library(pathview)
+    }
+    library('xml2')
+  
+    if(nchar(prefix) != 0){
+      prefix <- paste(prefix, '_', sep = '')
+    } 
+    
+    output.dir <- paste(output.main.dir, sep = '/')
+    dir.create(output.dir, recursive = TRUE)
+    #DEGs.table <- read.table(DEGs.table.path, stringsAsFactors = FALSE, header = TRUE, row.names = 1)
+    colnames(DEGs.table) <- c('Control', 'no_Control', 'Fold_Change', 'q-Value')
+    start.path <- getwd()
+    
+    if(species == 'hsa'){
+      OrgDb <- 'org.Hs.eg.db'
+      if(!require(org.Hs.eg.db)){
+        if(!require(BiocManager)){
+          install.packages('BiocManager', repos=cran)
+          BiocManager::install(version = BiocManager.version)
+          library(BiocManager)
+        }
+        BiocManager::install('org.Hs.eg.db')
+        library(org.Hs.eg.db)
+      }
+    } else if(species == 'mmu'){
+      OrgDb <- "org.Mm.eg.db"
+      if(!require(org.Mm.eg.db)){
+        if(!require(BiocManager)){
+          install.packages('BiocManager', repos=cran)
+          BiocManager::install(version = BiocManager.version)
+          library(BiocManager)
+        }
+        BiocManager::install('org.Mm.eg.db')
+        library(org.Mm.eg.db)
+      }
+    }
+    pathview.full.results <- list()
+    kegg.pathways.list <- keggList('pathway', species)
+    maps.list <- as.vector(kegg.pathways.list)
+    #names(maps.list) <- gsub(paste('path:', species, sep=''), '', names(kegg.pathways.list))
+    names(maps.list) <- gsub('path:', '', names(kegg.pathways.list))
+    if(length(maps.sublist) != 0){
+      adjustable <- which(!grepl(species, maps.sublist))
+      if(length(adjustable) == 0){
+        maps.sublist.species <- maps.sublist
+      }
+      else{
+        maps.sublist.species <- paste(species, maps.sublist, sep = '')
+      }
+      maps.list <- maps.list[which(names(maps.list) %in% maps.sublist.species)]
+    }
+    maps.list.length <- length(maps.list)
+    all.genes <- c()
+    data.frame.maps <- data.frame(Map=maps.list, Ratio=numeric(maps.list.length), Genes=numeric(maps.list.length), Up=numeric(maps.list.length), Down=numeric(maps.list.length), GenesUp=character(maps.list.length), GenesDown=character(maps.list.length), stringsAsFactors=FALSE)
+    #rownames(data.frame.maps) <- paste(species, rownames(data.frame.maps), sep="")
+    
+    KEGG.output.path <- paste(output.dir, paste(prefix, 'KEGG_pathways', sep = ''), sep = '/')
+    dir.create(KEGG.output.path)
+    
+    sink(paste(KEGG.output.path, 'KEGG_pathways.log', sep = '/'), split = TRUE)
+    
+    for (id in 1:maps.list.length){
+      print(paste('(', id, '/', maps.list.length, ') Workin on:', sep = ''))
+      #map.code <- gsub('path:', '', names(maps.list[id]))
+      map.code <- names(maps.list[id])
+      map.name <- gsub('/', '-', maps.list[id])
+      print(paste(map.code, map.name))
+      
+      output.map.directory <- paste(KEGG.output.path, map.name, sep='/')
+      dir.create(output.map.directory)
+      setwd(output.map.directory)
+      
+      kegg.map <- keggGet(map.code)
+      kegg.map.genes <- kegg.map[[1]]$GENE
+      kegg.map.genes.length <- length(kegg.map.genes)
+      if(kegg.map.genes.length != 0){
+        kegg.map.genes.matrix <- t(matrix(kegg.map.genes, nrow = 2))
+        kegg.map.genes.id <- kegg.map.genes.matrix[, 1]
+        kegg.map.genes.name.description <- kegg.map.genes.matrix[, 2]
+        kegg.map.genes.id.checked <- kegg.map.genes.id[grep(';', kegg.map.genes.name.description)]
+        kegg.map.genes.name.description.checked <- kegg.map.genes.name.description[grep(';', kegg.map.genes.name.description)]
+        #kegg.map.genes.name.description.matrix <- t(matrix(unlist(strsplit(kegg.map.genes.name.description.checked, ';')), nrow = 2))
+        #kegg.map.genes.name <- kegg.map.genes.name.description.matrix[, 1]
+        #kegg.map.genes.description <- trimws(kegg.map.genes.name.description.matrix[, 2])
+        kegg.map.genes.name <- gsub(";.*$", "", kegg.map.genes.name.description.checked)
+        kegg.map.genes.description <- gsub("^([^;]+); ", "", kegg.map.genes.name.description.checked)
+        kegg.map.genes.full.matrix <- cbind(kegg.map.genes.id.checked, kegg.map.genes.name, kegg.map.genes.description)
+        colnames(kegg.map.genes.full.matrix) <- c('ID', 'Gene', 'Description')
+        kegg.map.genes.full.dataframe <- data.frame(kegg.map.genes.full.matrix)
+        length(kegg.map.genes.full.dataframe$ID)
+        
+        subset.genes.in.map.complete <- subset(DEGs.table, tolower(rownames(DEGs.table)) %in% tolower(kegg.map.genes.full.dataframe$Gene))
+        subset.genes.in.map.unique <- unique(sort(subset.genes.in.map.complete$Gene))
+        
+        subset.genes.in.map.complete$Gene <- rownames(subset.genes.in.map.complete)
+        #subset.gene.in.map.complete.specific <- dplyr::select(subset.genes.in.map.complete, Gene, `Fold_Change`)
+        subset.gene.in.map.complete.specific <- dplyr::select(subset.genes.in.map.complete, Gene, Control, no_Control, Fold_Change, `q-Value`)
+        colnames(subset.gene.in.map.complete.specific) <- c('Gene', 'CTR', 'noCTR', 'Fold_Change', 'q-Value')
+        all.genes <- c(all.genes, subset.gene.in.map.complete.specific$Gene)
+        
+        subset.gene.in.map.complete.specific.fold.changed <- unique(subset.gene.in.map.complete.specific[which(subset.gene.in.map.complete.specific$Fold_Change!=0),])
+        subset.genes.in.map.unique.specific <- unique(sort(subset.gene.in.map.complete.specific.fold.changed$Gene))
+        subset.genes.in.map.unique.specific.length <- length(subset.genes.in.map.unique.specific)
+        subset.gene.in.map.complete.specific.upregulated <- unique(subset.gene.in.map.complete.specific[which(as.numeric(as.character(subset.gene.in.map.complete.specific$Fold_Change))>0),])
+        subset.genes.in.map.unique.specific.upregulated <- unique(sort(subset.gene.in.map.complete.specific.upregulated$Gene))
+        subset.genes.in.map.unique.specific.upregulated.length <- length(subset.genes.in.map.unique.specific.upregulated)
+        subset.gene.in.map.complete.specific.downregulated <- unique(subset.gene.in.map.complete.specific[which(as.numeric(as.character(subset.gene.in.map.complete.specific$Fold_Change))<0),])
+        subset.genes.in.map.unique.specific.downregulated <- unique(sort(subset.gene.in.map.complete.specific.downregulated$Gene))
+        subset.genes.in.map.unique.specific.downregulated.length <- length(subset.genes.in.map.unique.specific.downregulated)
+        
+        write.table(subset.gene.in.map.complete.specific.fold.changed, file=paste(output.map.directory, '/all.tsv', sep=''), quote=FALSE, sep='\t', row.names=FALSE)
+        write.table(subset.gene.in.map.complete.specific.upregulated, file=paste(output.map.directory, '/upregulated.tsv', sep=''), quote=FALSE, sep='\t', row.names=FALSE)
+        write.table(subset.gene.in.map.complete.specific.downregulated, file=paste(output.map.directory, '/downregulated.tsv', sep=''), quote=FALSE, sep='\t', row.names=FALSE)
+        
+        ### PREPARE INPUT FOR KEGG MAPPER ###
+        
+        colnames <- c(colnames(subset.gene.in.map.complete.specific), 'ID', 'Description', 'Empty', 'Color')
+        kegg.mapper.upregulated <- data.frame()
+        if(subset.genes.in.map.unique.specific.upregulated.length != 0){
+          kegg.mapper.upregulated <- cbind(merge(subset.gene.in.map.complete.specific.upregulated, kegg.map.genes.full.dataframe, by='Gene'), '', '#ff8888')
+          colnames(kegg.mapper.upregulated)<-colnames
+        }
+        kegg.mapper.downregulated <- data.frame()
+        if(subset.genes.in.map.unique.specific.downregulated.length != 0){
+          kegg.mapper.downregulated <- cbind(merge(subset.gene.in.map.complete.specific.downregulated, kegg.map.genes.full.dataframe, by='Gene'), '', '#8888ff')
+          colnames(kegg.mapper.downregulated)<-colnames
+        }
+        
+        kegg.mapper <- data.frame()
+        if(nrow(kegg.mapper.upregulated) != 0 && nrow(kegg.mapper.downregulated) != 0){
+          kegg.mapper <- rbind(kegg.mapper.upregulated, kegg.mapper.downregulated)
+        } else if(nrow(kegg.mapper.upregulated) != 0 && nrow(kegg.mapper.downregulated) == 0){
+          kegg.mapper <- kegg.mapper.upregulated
+        } else if(nrow(kegg.mapper.upregulated) == 0 && nrow(kegg.mapper.downregulated) != 0){
+          kegg.mapper <- kegg.mapper.downregulated
+        }
+        
+        if(nrow(kegg.mapper) != 0){
+          kegg.mapper.input <- cbind(t(matrix(kegg.mapper$ID, nrow=1)), t(matrix(kegg.mapper$Color, nrow=1)), t(matrix(kegg.mapper$Empty, nrow=1)), t(matrix(kegg.mapper$Color, nrow=1)))
+          write.table(kegg.mapper.input, file=paste(output.map.directory, 'tab.tsv', sep = '/'), sep='\t', quote=FALSE, row.names=FALSE, col.names=c(paste('#',species,sep=''), 'CLP/CMP', 'Blast_phase', 'All'))
+          
+          data.frame.maps[which(rownames(data.frame.maps)==map.code), ]$Ratio <- subset.genes.in.map.unique.specific.length/kegg.map.genes.length
+          data.frame.maps[which(rownames(data.frame.maps)==map.code), ]$Genes <- subset.genes.in.map.unique.specific.length
+          data.frame.maps[which(rownames(data.frame.maps)==map.code), ]$Up <- subset.genes.in.map.unique.specific.upregulated.length
+          data.frame.maps[which(rownames(data.frame.maps)==map.code), ]$Down <- subset.genes.in.map.unique.specific.downregulated.length
+          data.frame.maps[which(rownames(data.frame.maps)==map.code), ]$GenesUp <- paste(as.character(subset.genes.in.map.unique.specific.upregulated),collapse=' ')
+          data.frame.maps[which(rownames(data.frame.maps)==map.code), ]$GenesDown <- paste(as.character(subset.genes.in.map.unique.specific.downregulated),collapse=' ')
+          
+          print(paste('Genes:', subset.genes.in.map.unique.specific.length))
+          print(paste('Genes ratio in map:', subset.genes.in.map.unique.specific.length/kegg.map.genes.length))
+          print(paste('Genes up:', subset.genes.in.map.unique.specific.upregulated.length))
+          print(subset.genes.in.map.unique.specific.upregulated)
+          print(paste('Genes down:', subset.genes.in.map.unique.specific.downregulated.length))
+          print(subset.genes.in.map.unique.specific.downregulated)
+          
+          ### PAINT KEGG PATHWAY DEPENDING ON FOLD CHANGE ###
+          mydata.matrix <- matrix(kegg.mapper$Fold_Change)
+          mydata.matrix.pathview <- matrix(nrow=nrow(mydata.matrix), ncol = 1)
+          mydata.matrix.pathview[which(as.numeric(as.character(mydata.matrix[,1]))>0),] <- 1
+          mydata.matrix.pathview[which(as.numeric(as.character(mydata.matrix[,1]))<0),] <- -1
+          rownames(mydata.matrix.pathview) <- kegg.mapper$ID
+          
+          upregulated.map <- NULL
+          downregulated.map <- NULL
+          full.map <- NULL
+          sleep.time <- 3
+          KEGG.pathway.print.map(mydata.matrix.pathview[which(mydata.matrix.pathview > 0), 1], map.code, species, output.map.directory, upregulated.map, 'upregulated', sleep.time)
+          KEGG.pathway.print.map(mydata.matrix.pathview[which(mydata.matrix.pathview < 0), 1], map.code, species, output.map.directory, downregulated.map, 'downregulated', sleep.time)
+          KEGG.pathway.print.map(mydata.matrix.pathview[, 1], map.code, species, output.map.directory, full.map, 'full', sleep.time)
+            
+          if(FALSE){
+            if(is.list(full.map)){
+              pathview.full.result <- full.map$plot.data.gene
+              #print(pathview.full.result)
+              if(! is.null(pathview.full.result)){
+    	        #pathview.full.result.ordered <- pathview.full.result[order(pathview.full.result$kegg.names), ]
+    	        #pathview.full.results <- c(pathview.full.results, list(dplyr::select(pathview.full.result.ordered, kegg.names, mol.data)))
+   	        pathview.full.results <- c(pathview.full.results, list(dplyr::select(pathview.full.result, mol.data)))
+      	        #pathview.full.results <- c(pathview.full.results, list(pathview.full.result$plot.data.gene))
+  	      }
+            } else {
+              print(full.map)
+              print('No generated map')
+            }
+          }
+        } else {
+          print('No genes in this map.')
+        }
+      } else {
+        print('No genes in this KEGG map.')
+      }
+    }
+    
+    print(pathview.full.results)
+    write.table(data.frame.maps[rev(order(data.frame.maps$Ratio)), ], file = paste(KEGG.output.path, 'statistics.txt', sep='/'), quote = FALSE, sep = "\t")
+
+    setwd(start.path)
+    sink()
+  } else {
+    print("No DEG found")
+  }
+}
+
+KEGG.enrichment.table.path <- function(DEGs.table.path, output.main.dir = '', prefix = '', fc = 0, species = 'hsa'){
+  DEGs.table <- read.table(DEGs.table.path, stringsAsFactors = FALSE, header = TRUE, row.names = 1)
+  DEGs.table.fc <- DEGs.table[DEGs.table$Fold_Change < -fc | DEGs.table$Fold_Change > fc, ]
+  KEGG.enrichment(DEGs = rownames(DEGs.table.fc), output.main.dir = output.main.dir, prefix = prefix, fc = fc, species = species)
+}
+
+KEGG.enrichment <- function(DEGs, output.main.dir = '', prefix = '', fc = 0, species = 'hsa'){
+  threshold <- 0.05
+  kegg.data.frame.significative.sorted <- NULL
+  if(length(DEGs) != 0) {
+    if(!require(biomaRt)){
+      if(!require(BiocManager)){
+        install.packages('BiocManager', repos=cran)
+        BiocManager::install(version = BiocManager.version)
+        library(BiocManager)
+      }
+      BiocManager::install('biomaRt', version = '2.50.3')
+      library('biomaRt')
+    }
+
+    if(!require(clusterProfiler)){
+      if(!require(BiocManager)){
+        install.packages('BiocManager', repos=cran)
+        BiocManager::install(version = BiocManager.version)
+        library(BiocManager)
+      }
+      BiocManager::install('clusterProfiler')
+      library(clusterProfiler)
+    }
+
+    if(!require(dplyr)){
+      install.packages('dplyr')
+      library(dplyr)
+    }
+  
+    if(nchar(prefix) != 0){
+      prefix <- paste(prefix, '_', sep = '')
+    } 
+  
+    output.dir = ''
+    if(output.main.dir != ''){
+      correct.fc.names <- ''
+      if(fc != 0){
+        correct.fc.names <- paste('_fc', fc, sep = '')
+      }
+      output.dir <- paste(output.main.dir, paste(prefix, 'KEGG_enrichment', correct.fc.names, sep = ''), sep = '/')
+      dir.create(output.dir, recursive = TRUE)
+    
+      sink(paste(output.dir, 'KEGG_enrichment.log', sep = '/'), split = TRUE)
+    }
+  
+   if(species == 'hsa'){
+      dataset <- 'hsapiens_gene_ensembl'
+      gene_name <- 'hgnc_symbol'
+    } else if(species == 'mmu'){
+      dataset <- 'mmusculus_gene_ensembl'
+      gene_name <- 'mgi_symbol'
+    }
+  
+    mart <- NULL
+    sleep.time <- 3
+    attempt <- 0
+    total.attempts <- 9999
+    while(is.null(mart) && attempt <= total.attempts){
+      attempt <- attempt + 1
+      print(paste('Downloading mart: attempt', attempt))
+      mart <- tryCatch(
+        expr = {
+          useMart(dataset = dataset, biomart = 'ensembl')
+        },
+        error = function(e){
+          print('Mart cannot be downloaded')
+          print(e)
+          Sys.sleep(sleep.time)
+	  if(attempt == total.attempts){
+	    print('Mart failed to be downloaded')
+	    return
+  	  }
+        }
+      )
+    }
+
+    #print(DEGs)
+    mapping <- NULL
+    attempt <- 0
+    while(is.null(mapping) && attempt <= total.attempts){
+      attempt <- attempt + 1
+      print(paste('Mapping pathway: attempt', attempt))
+      mapping <- tryCatch(
+        expr = {
+          getBM(
+    	    attributes = c('ensembl_gene_id', 'ensembl_transcript_id', 'entrezgene_id', gene_name), 
+      	    filters = gene_name,
+	    values = DEGs,
+ 	    mart = mart
+          )
+        },
+        error = function(e){
+          print('KEGG mapping failed')
+          print(e)
+          Sys.sleep(sleep.time)
+          if(attempt == total.attempts){
+            print('Mapping failed for pathway')
+            return
+          }
+        }
+      )
+    }
+
+    if(!is.null(mapping) && nrow(mapping) != 0){
+      #print(unique(as.character(mapping$entrezgene_id)))
+      kegg <- clusterProfiler::enrichKEGG(unique(as.character(mapping$entrezgene_id)), organism = species, keyType = 'kegg', pvalueCutoff = threshold, pAdjustMethod = 'BH', minGSSize = 10, maxGSSize = 500, qvalueCutoff = threshold, use_internal_data = FALSE)
+      if(! is.null(kegg)){
+        kegg.data.frame <- as.data.frame(kegg)
+        kegg.data.frame.significative <- kegg.data.frame[which(kegg.data.frame$qvalue < threshold), ]
+        kegg.data.frame.significative['BG'] <- as.numeric(sapply(kegg.data.frame.significative$BgRatio, function(x){strsplit(x, '/')[[1]][1]}))
+        kegg.data.frame.significative['CountBGRatio'] <- kegg.data.frame.significative['Count']/kegg.data.frame.significative['BG']
+        kegg.data.frame.significative['geneName'] <- sapply(kegg.data.frame.significative$geneID, function(x){paste(unique(mapping %>%
+                                                                                                                             dplyr::select(entrezgene_id, all_of(gene_name)) %>% 
+                                                                                                                             dplyr::filter(entrezgene_id %in% str_split(x, '/')[[1]]) %>% 
+                                                                                                                             dplyr::select(all_of(gene_name)))[[1]], collapse='/')})
+        kegg.data.frame.significative.sorted <- kegg.data.frame.significative[order(-kegg.data.frame.significative$CountBGRatio), ]
+        if(output.dir != ''){
+          write.table(kegg.data.frame.significative.sorted, file = paste(output.dir, 'kegg.enrichment.tsv', sep = '/'), quote = FALSE, sep = '\t', row.names = FALSE)
+        }
+      } else {
+        print('No gene can be mapped')
+      }  
+    }
+  } else {
+    print('No DEG identified')
+  }
+  sink()
+  #print(kegg.data.frame.significative.sorted)
+  return(kegg.data.frame.significative.sorted)
+}
+
+gene.ontology.enrichment.table.path <- function(DEGs.table.path, output.main.dir = '', prefix = '', fc = 0, species = 'hsa'){
+  DEGs.table <- read.table(DEGs.table.path, stringsAsFactors = FALSE, header = TRUE, row.names = 1)
+  # colnames(DEGs.table) <- c('Control', 'no_Control', 'Fold_Change', 'q-Value')
+  DEGs.table.fc <- DEGs.table[DEGs.table$Fold_Change < -fc | DEGs.table$Fold_Change > fc, ]
+  if (nrow(DEGs.table.fc) != 0) {
+    gene.ontology.data.frame.significative.sorted <- gene.ontology.enrchiment(DEGs = rownames(DEGs.table.fc), output.main.dir = output.main.dir, prefix = prefix, fc = fc, species = species)
+    if(!is.null(gene.ontology.data.frame.significative.sorted)){
+      print('Generate enriched tables with fold change')
+      gene.ontology.enriched.DEGs(gene.ontology.data.frame = gene.ontology.data.frame.significative.sorted, DEGs.table = DEGs.table.fc, output.main.dir = output.main.dir, prefix = prefix, fc = fc)
+    }
+  } else {
+    print('No DEGs identified with this fold change')
+  }
+}
+
+gene.ontology.enrchiment <- function(DEGs, output.main.dir = '', prefix = '', fc = 0, species = 'hsa'){
+  threshold <- 0.05
+  gene.ontology.data.frame.significative.sorted <- NULL
+  if(length(DEGs) != 0){
+    if(!require(biomaRt)){
+      if(!require(BiocManager)){
+        install.packages('BiocManager', repos=cran)
+        BiocManager::install(version = BiocManager.version)
+        library(BiocManager)
+      }
+      BiocManager::install('biomaRt', version = '2.50.3')
+      library(biomaRt)
+    }
+    if(!require(clusterProfiler)){
+      if(!require(BiocManager)){
+        install.packages('BiocManager', repos=cran)
+        BiocManager::install(version = BiocManager.version)
+        library(BiocManager)
+      }
+      BiocManager::install('clusterProfiler')
+      library(clusterProfiler)
+    }
+  
+    if(nchar(prefix) != 0){
+      prefix <- paste(prefix, '_', sep = '')
+    } 
+    
+    output.dir = ''
+    if(output.main.dir != ''){
+      correct.fc.names <- ''
+      if(fc != 0){
+        correct.fc.names <- paste('_fc', fc, sep = '')
+      }
+      output.dir <- paste(output.main.dir, paste(prefix, 'GO_enrichment', correct.fc.names, sep = ''), sep = '/')
+      enriched.degs.dir <- paste(output.dir, 'Enriched_Ontologies', sep = '/')
+      dir.create(enriched.degs.dir, recursive = TRUE)
+      sink(paste(output.dir, 'GO_enrichment.log', sep = '/'), split = TRUE)
+    }
+    
+    if(species == 'hsa'){
+      OrgDb <- 'org.Hs.eg.db'
+      if(!require(org.Hs.eg.db)){
+        if(!require(BiocManager)){
+          install.packages('BiocManager', repos=cran)
+          BiocManager::install(version = BiocManager.version)
+          library(BiocManager)
+        }
+        BiocManager::install('org.Hs.eg.db')
+        library(org.Hs.eg.db)
+      }
+      dataset = 'hsapiens_gene_ensembl'
+      gene_name <- 'hgnc_symbol'
+    } else if(species == 'mmu'){
+      OrgDb <- "org.Mm.eg.db"
+      if(!require(org.Mm.eg.db)){
+        if(!require(BiocManager)){
+          install.packages('BiocManager', repos=cran)
+          BiocManager::install(version = BiocManager.version)
+          library(BiocManager)
+        }
+        BiocManager::install('org.Mm.eg.db')
+        library(org.Mm.eg.db)
+      }
+      dataset = 'mmusculus_gene_ensembl'
+      gene_name <- 'mgi_symbol'
+    } 
+  
+    mart <- NULL
+    sleep.time <- 3
+    attempt <- 0
+    total.attempts <- 9999
+    while(is.null(mart) && attempt <= total.attempts){
+      attempt <- attempt + 1
+      print(paste('Downloading mart: attempt', attempt))
+      mart <- tryCatch(
+        expr = {
+          useMart(dataset = dataset, biomart = 'ensembl')
+        },
+        error = function(e){
+          print('Mart cannot be downloaded')
+          print(e)
+          Sys.sleep(sleep.time)
+  	  if(attempt == total.attempts){
+            print('Mart failed to be downloaded')
+  	    return
+  	  }
+        }
+      )
+    }
+
+    mapping <- NULL
+    attempt <- 0
+    while(is.null(mapping) && attempt <= total.attempts){
+      attempt <- attempt + 1
+      print(paste('Mapping ontologies: attempt', attempt))
+      mapping <- tryCatch(
+        expr = {
+          getBM(
+            attributes = c('ensembl_gene_id', 'ensembl_transcript_id', 'entrezgene_id', gene_name), 
+            # attributes = c('ensembl_gene_id', 'ensembl_transcript_id', 'entrezgene_id', gene_name, 'start_position', 'end_position', 'go_id', 'name_1006', 'definition_1006'), 
+            filters = gene_name,
+            values = DEGs,
+            mart = mart
+          )
+        },
+        error = function(e){
+          print('GO mapping failed')
+          print(e)
+          Sys.sleep(sleep.time)
+          if(attempt == total.attempts){
+	    print('Mapping failed for ontoloies')
+            return
+          }
+        }
+      )
+    }
+
+    if(! is.null(mapping) && nrow(mapping) != 0) {
+      gene.ontology <- clusterProfiler::enrichGO(gene = unique(as.character(mapping$entrezgene_id)), OrgDb = OrgDb, ont = 'ALL', pAdjustMethod = 'BH', pvalueCutoff = threshold, qvalueCutoff = threshold, readable = TRUE)
+      if(! is.null(gene.ontology)){
+        gene.ontology.data.frame <- as.data.frame(gene.ontology)
+        gene.ontology.data.frame.significative <- gene.ontology.data.frame[gene.ontology.data.frame$qvalue < threshold, ]
+        gene.ontology.data.frame.significative['BG'] <- as.numeric(sapply(gene.ontology.data.frame.significative$BgRatio, function(x){strsplit(x, "/")[[1]][1]}))
+        gene.ontology.data.frame.significative['CountBGRatio'] <- gene.ontology.data.frame.significative['Count']/gene.ontology.data.frame.significative['BG']
+        gene.ontology.data.frame.significative.sorted <- gene.ontology.data.frame.significative[order(-gene.ontology.data.frame.significative$CountBGRatio), ]
+        if(output.dir != '') {
+          gene.ontology.data.frame.significative.sorted.bp <- gene.ontology.data.frame.significative.sorted[which(gene.ontology.data.frame.significative.sorted$ONTOLOGY=='BP'), ]
+          if(nrow(gene.ontology.data.frame.significative.sorted.bp) != 0) {
+            write.table(gene.ontology.data.frame.significative.sorted.bp, file = paste(output.dir, 'GO.BP.enrichment.tsv', sep = '/'), quote = FALSE, sep = '\t', row.names = FALSE)
+          } else {
+            print('Biological processes not found')
+          }
+          gene.ontology.data.frame.significative.sorted.mf <- gene.ontology.data.frame.significative.sorted[which(gene.ontology.data.frame.significative.sorted$ONTOLOGY=='MF'), ]
+          if(nrow(gene.ontology.data.frame.significative.sorted.mf) != 0) {
+            write.table(gene.ontology.data.frame.significative.sorted.mf, file = paste(output.dir, 'GO.MF.enrichment.tsv', sep = '/'), quote = FALSE, sep = '\t', row.names = FALSE)
+          } else {
+            print('Molecular functions not found')
+          }
+          gene.ontology.data.frame.significative.sorted.cc <- gene.ontology.data.frame.significative.sorted[which(gene.ontology.data.frame.significative.sorted$ONTOLOGY=='CC'), ]
+          if(nrow(gene.ontology.data.frame.significative.sorted.cc) != 0) {
+            write.table(gene.ontology.data.frame.significative.sorted.cc, file = paste(output.dir, 'GO.CC.enrichment.tsv', sep = '/'), quote = FALSE, sep = '\t', row.names = FALSE)
+          } else {
+            print('Cellular compartments not found')
+          }
+        }
+      } else {
+        print('No gene can be mapped')
+      }
+    } else {
+      print('Mapping failed')
+    } 
+  } else {
+    print('No DEG identified')
+  }  
+  if(output.dir != '') {
+    sink()
+  }
+  
+  #print(gene.ontology.data.frame.significative.sorted)
+  return(gene.ontology.data.frame.significative.sorted)
+}
+
+gene.ontology.enriched.DEGs <- function(gene.ontology.data.frame = gene.ontology.data.frame, DEGs.table = DEGs.table, output.main.dir = output.main.dir, prefix = prefix, fc = 0){
+  library(stringr)
+  library(dplyr)
+
+  correct.fc.names <- ''
+  if(fc != 0){
+    correct.fc.names <- paste('_fc', fc, sep = '')
+  }
+
+  enriched.tables.path <- paste(output.main.dir, paste(prefix, 'GO_enrichment', correct.fc.names, sep = ''), 'Enriched_Ontologies', sep = '/')
+  enriched.bp.tables.path <- paste(enriched.tables.path, 'BP', sep = '/')
+  dir.create(enriched.bp.tables.path, recursive = TRUE)
+  enriched.mf.tables.path <- paste(enriched.tables.path, 'MF', sep = '/')
+  dir.create(enriched.mf.tables.path, recursive = TRUE)
+  enriched.cc.tables.path <- paste(enriched.tables.path, 'CC', sep = '/')
+  dir.create(enriched.cc.tables.path, recursive = TRUE)
+  
+  if(nrow(gene.ontology.data.frame) != 0){
+    for(go.id in 1:nrow(gene.ontology.data.frame)){
+      print(gene.ontology.data.frame[go.id, c(1, 2, 3)])
+      go.class <- gene.ontology.data.frame[go.id, 1]
+      go.reduced <- gene.ontology.data.frame[go.id, c(2, 3, 9)]
+      go.genes <- str_split(go.reduced$geneID, "/")[[1]]
+      go.degs <- DEGs.table[rownames(DEGs.table) %in% go.genes, ]
+
+      enriched.degs <- paste(enriched.tables.path, go.class, paste(gsub('/', ' ', go.reduced$Description), ".tsv", sep = ""), sep = '/')
+      #write.table(go.bp.degs, file=enriched.degs, quote=FALSE, sep='\t', col.names = NA)
+      go.degs.genes <- data.frame(cbind(rownames(go.degs), go.degs))
+      colnames(go.degs.genes)<-c("Gene", "Control", "no_Control", "Fold_Change", "q-Value")
+      write.table(go.degs.genes, file=enriched.degs, quote=FALSE, sep='\t', row.names = FALSE, col.names = TRUE)
+    }
+  }
+  else
+    print("Nessun arricchimento trovato")
+}

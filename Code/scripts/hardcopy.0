@@ -1,0 +1,37 @@
+0  (12.9ms) 11:37:17 utente@hpedl380g10 ~ $ cd Desktop/
+0  (5.1ms) 11:37:23 utente@hpedl380g10 ~/Desktop $ cd RNA/
+0  (5.1ms) 11:37:25 utente@hpedl380g10 ~/Desktop/RNA $ l
+totale 4,0K
+-rw-rw-r--. 1 480 16 feb 14.39 PRJNA561731_AD_bkp
+-rw-rw-r--. 1   0 16 feb 17.43 PRJNA561731_AD
+drwxrwxr-x. 2   6 18 feb 10.06 input/
+drwxrwxr-x. 3  24 18 feb 10.06 output/
+drwxrwxr-x. 2 214 18 feb 11.37 scripts/
+0  (10.3ms) 11:37:26 utente@hpedl380g10 ~/Desktop/RNA $ /home/utente/Desktop/RNA/scripts/
+fastq-dump.iterator.sh        generateRscript.sh            RNA_PIPELINE_2.0_ITERATOR.sh
+fastq-dump.sh                 RNA_PIPELINE_2.0_FREE.sh      startRNAProject.sh
+0  (10.3ms) 11:37:26 utente@hpedl380g10 ~/Desktop/RNA $ mv /home/utente/Desktop/RNA/scripts/RNA_PIPELINE_2.0_FREE.sh rna_pipeline.s
+h
+0  (9.0ms) 11:38:02 utente@hpedl380g10 ~/Desktop/RNA $ l
+totale 12K
+-rw-rw-r--. 1  480 16 feb 14.39 PRJNA561731_AD_bkp
+-rw-rw-r--. 1    0 16 feb 17.43 PRJNA561731_AD
+drwxrwxr-x. 2    6 18 feb 10.06 input/
+drwxrwxr-x. 3   24 18 feb 10.06 output/
+-rwxr-xr-x. 1 5,6K 18 feb 11.37 rna_pipeline.sh*
+drwxrwxr-x. 2  182 18 feb 11.38 scripts/
+0  (10.5ms) 11:38:04 utente@hpedl380g10 ~/Desktop/RNA $ mv rna_pipeline.sh /home/utente/Desktop/RNA/scripts/
+0  (8.7ms) 11:38:23 utente@hpedl380g10 ~/Desktop/RNA $ l
+totale 4,0K
+-rw-rw-r--. 1 480 16 feb 14.39 PRJNA561731_AD_bkp
+-rw-rw-r--. 1   0 16 feb 17.43 PRJNA561731_AD
+drwxrwxr-x. 2   6 18 feb 10.06 input/
+drwxrwxr-x. 3  24 18 feb 10.06 output/
+drwxrwxr-x. 2 205 18 feb 11.38 scripts/
+0  (10.3ms) 11:38:24 utente@hpedl380g10 ~/Desktop/RNA $ cd RNA/^C
+130  (4.9ms) 11:38:29 utente@hpedl380g10 ~/Desktop/RNA $ ^C
+130  (5.0ms) 11:38:30 utente@hpedl380g10 ~/Desktop/RNA $ cd /home/utente/Desktop/RNA/scripts/rna_pipeline.sh
+bash: cd: /home/utente/Desktop/RNA/scripts/rna_pipeline.sh: Non è una directory
+1  (5.3ms) 11:38:47 utente@hpedl380g10 ~/Desktop/RNA $ cd /home/utente/Desktop/RNA/scripts/
+0  (5.1ms) 11:38:51 utente@hpedl380g10 ~/Desktop/RNA/scripts $ mv rna_pipeline.sh pipeline.sh
+0  (8.8ms) 11:38:56 utente@hpedl380g10 ~/Desktop/RNA/scripts $ ./pipeline.sh human

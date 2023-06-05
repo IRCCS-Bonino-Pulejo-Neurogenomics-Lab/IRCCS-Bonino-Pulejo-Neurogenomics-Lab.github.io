@@ -1,0 +1,192 @@
+echo
+echo
+echo "*******************************************"
+echo "*                                         *"
+echo "* Welcome in NGS data analysis pipeline   *"
+echo "*                                         *"
+echo "*              Bests, Luigi Chiricosta :) *"
+echo "*                                         *"
+echo "*******************************************"
+echo 
+echo
+
+checkError()
+{
+	date >> $log
+	local_error=$1
+	error=$error"-"$local_error
+	echo $local_error | tee -a $log
+
+	if [ $local_error -ne 0 ]; then
+	        exit
+	fi
+}
+
+if [ $# -lt 3 ]; then 
+	echo "Use $0 {human/mouse} output_path fullpath/R1.fastq.gz [fullpath/R2.fastq.gz]"
+	exit
+fi
+
+echo "******************************"
+date
+echo "******************************"
+
+species=$1
+main=/home/$USER
+resources=$main/resources
+genomes_resources=$resources/genomes
+tools_resources=$resources/tools
+STAR=$tools_resources/STAR/source/STAR
+trimmomatic_path=$tools_resources/Trimmomatic
+trimmomatic="java -jar $trimmomatic_path/dist/jar/trimmomatic*"
+if [[ $species == "human" ]] || [[ $species == "mouse" ]]; then
+	genome=$genomes_resources/$species
+else
+	echo "No genome available for species $species"
+	exit
+fi
+
+cores=$(cat /proc/cpuinfo | awk '/^processor/{print $3}' | wc -l)
+running_cores=$((cores-1))
+#if [ $used_cores -gt $cores ]; then
+#        used_cores=$cores
+#fi
+if [ $running_cores -gt 15 ]; then
+        running_cores=15
+fi
+#ram=$(free -h | grep Mem | awk '{print $2}' | sed 's/G//g')
+#running_ram=$(($ram / 10))0
+echo Using $running_cores cores
+
+input_R1=$3
+R1_name=$(basename "$input_R1")
+input_R2=$4
+if [ ${#input_R2} -ne 0 ]; then
+	R2_name=$(basename "$input_R2")
+fi
+experiment=$(echo $R1_name | cut -f1 -d '.' | cut -f1 -d '_')
+
+#output=$main/Desktop/research/RNA/output/pipeline/$experiment
+output=$2/$experiment
+temporary_output=$output
+output_exist=0
+while [ -d $temporary_output ]; do
+	output_exist=$(($output_exist+1))
+	temporary_output=${output}_$output_exist
+done
+output=$temporary_output
+log=$output/pipeline.log
+mkdir -p $output
+echo Output in: $output | tee -a $log
+
+date | tee -a $log
+if [ ${#input_R2} -ne 0 ]; then
+        echo "*** PAIR END ***" | tee -a $log
+else
+        echo "*** SINGLE END ***" | tee -a $log
+fi
+
+
+#STAR_prefix=FinalSorted
+STAR_prefix=""
+STAR_output_name=Aligned.out
+
+#taskID=$(/home/spliced/executeTaskStarting.sh)
+
+echo "-> Created experiment $experiment <-" | tee -a $log
+
+echo "-> FASTQC CONTROLL STEP <-" | tee -a $log
+cmd="$tools_resources/FastQC/fastqc --threads $running_cores --outdir $output $input_R1"
+echo $cmd | tee -a $log
+eval $cmd | tee -a $log
+R1_short_name=$(echo $R1_name | cut -f1 -d '.')
+cmd="unzip $output/${R1_short_name}_fastqc.zip -d $output/"
+echo $cmd | tee -a $log
+eval $cmd | tee -a $log
+
+cmd="grep -w FAIL $output/${R1_short_name}_fastqc/summary.txt"
+echo $cmd | tee -a $log
+eval $cmd | tee -a $log
+
+cmd="grep -w 'Sequence length' $output/${R1_short_name}_fastqc/fastqc_data.txt | sed 's/Sequence length\t//g' | cut -f2 -d '-'"
+echo $cmd | tee -a $log
+reads_length=$(eval $cmd | tee -a $log)
+echo Mean reads lenght is $reads_length
+smallrna_threshold=75
+if [ $reads_length -lt $smallrna_threshold ]; then
+	echo Analyzing as smallRNA | tee -a $log
+	MINLEN=18
+	ILLUMINACLIP=$trimmomatic_path/adapters/custom/illumina_adapters_small_rna.fasta
+else
+	echo Analyzing as full RNA | tee -a $log
+	MINLEN=35
+        ILLUMINACLIP=$trimmomatic_path/adapters/custom/illumina_adapters.fasta
+fi
+	
+
+echo "-> TRIMMING STEP <-" | tee -a $log
+if [ ${#input_R2} -ne 0 ]; then
+	cmd="$trimmomatic PE -threads $running_cores -phred33 $input_R1 $input_R2 $output/${R1_name}_PAIRED_TRIM.fq $output/${R1_name}_UNPAIRED_TRIM.fq $output/${R2_name}_PAIRED_TRIM.fq $output/${R2_name}_UNPAIRED_TRIM.fq ILLUMINACLIP:$ILLUMINACLIP:2:30:10 LEADING:30 TRAILING:28 SLIDINGWINDOW:4:28 MINLEN:$MINLEN 2>&1 | tee -a $log" #MINLEN:75
+else
+	cmd="$trimmomatic SE -threads $running_cores -phred33 $input_R1 $output/${R1_name}_UNPAIRED_TRIM.fq ILLUMINACLIP:$ILLUMINACLIP:2:30:10 LEADING:30 TRAILING:28 SLIDINGWINDOW:4:28 MINLEN:$MINLEN 2>&1 | tee -a $log"
+fi
+echo "$cmd"
+eval "$cmd"
+checkError $?
+
+echo "-> ALIGNMENT STEP <-" | tee -a $log
+if [ $reads_length -lt $smallrna_threshold ]; then
+	#https://www.encodeproject.org/documents/b4ec4567-ac4e-4812-b2bd-e1d2df746966/@@download/attachment/ENCODE_miRNA-seq_STAR_parameters_v2.pdf
+	cmd="$STAR --runThreadN $running_cores --genomeDir $genome --sjdbGTFfile $genome/gencode.*.primary_assembly.annotation.mirna.gtf --readFilesIn $output/${R1_name}_UNPAIRED_TRIM.fq --outFileNamePrefix $output/$STAR_prefix --alignEndsType EndToEnd -- outFilterMismatchNmax 1 --outFilterMultimapScoreRange 0 --quantMode TranscriptomeSAM --outReadsUnmapped Fastx --outSAMtype BAM SortedByCoordinate --outFilterMultimapNmax 10 --outSAMunmapped Within --outFilterScoreMinOverLread 0 --outFilterMatchNminOverLread 0 --outFilterMatchNmin 16 --alignSJDBoverhangMin 1000 --alignIntronMax 1 --outWigType wiggle --outWigStrand Stranded --outWigNorm RPM"
+#--twopassMode Basic
+else
+	if [ ${#input_R2} -ne 0 ]; then
+		cmd="$STAR --runThreadN $running_cores --genomeDir $genome --sjdbGTFfile $genome/gencode.*.primary_assembly.annotation.gtf --readFilesIn $output/${R1_name}_PAIRED_TRIM.fq $output/${R2_name}_PAIRED_TRIM.fq --outFileNamePrefix $output/$STAR_prefix --outFilterIntronMotifs RemoveNoncanonical --outSAMtype BAM SortedByCoordinate --outReadsUnmapped Fastx --quantMode GeneCounts 2>&1 | tee -a $log"
+	else
+		cmd="$STAR --runThreadN $running_cores --genomeDir $genome --sjdbGTFfile $genome/gencode.*.primary_assembly.annotation.gtf --readFilesIn $output/${R1_name}_UNPAIRED_TRIM.fq --outFileNamePrefix $output/$STAR_prefix --outFilterIntronMotifs RemoveNoncanonical --outSAMtype BAM SortedByCoordinate --outReadsUnmapped Fastx --quantMode GeneCounts 2>&1 | tee -a $log"
+	fi
+fi
+echo "$cmd" | tee -a $log
+eval "$cmd" | tee -a $log
+checkError $?
+
+cmd="samtools index -@ $running_cores $output/Aligned.sortedByCoord.out.bam"
+echo "$cmd" | tee -a $log
+eval "$cmd" | tee -a $log
+checkError $?
+
+#echo "-> UNMAPPED1 ALIGNMENT STEP <-"
+#$STAR --runThreadN $running_cores --genomeDir $genome --readFilesIn $output/Unmapped.out.mate1 --outFileNamePrefix $output/Unmapped1 --outFilterIntronMotifs RemoveNoncanonical --outSAMtype BAM SortedByCoordinate
+#samtools index -@ $running_cores $output/Unmapped1Aligned.sortedByCoord.out.bam
+
+#echo "-> UNMAPPED2 ALIGNMENT STEP <-"
+#$STAR --runThreadN $running_cores --genomeDir $genome --readFilesIn $output/Unmapped.out.mate2 --outFileNamePrefix $output/Unmapped2 --outFilterIntronMotifs RemoveNoncanonical --outSAMtype BAM SortedByCoordinate
+#samtools index -@ $running_cores $output/Unmapped2Aligned.sortedByCoord.out.bam
+
+#echo "-> COMPUTE FINAL BAM <- "
+#samtools merge -@ $running_cores $output/FinalAligned.sortedByCoord.out.bam $output/Aligned.sortedByCoord.out.bam $output/Unmapped1Aligned.sortedByCoord.out.bam $output/Unmapped2Aligned.sortedByCoord.out.bam 
+#samtools index $output/FinalAligned.sortedByCoord.out.bam
+#samtools sort -@ $running_cores -O bam -o $output/FinalSortedAligned.sortedByCoord.out.bam $output/FinalAligned.sortedByCoord.out.bam
+#samtools index -@ $running_cores $output/FinalSortedAligned.sortedByCoord.out.bam
+
+finalName=${STAR_prefix}Aligned.sortedByCoord.out.bam
+
+echo "-> COMPUTING DEPTH <-" | tee -a $log
+cmd="samtools depth $output/$finalName -b $(ls $genome/gencode.*primary_assembly.annotation.gtf) | awk '{sum=sum+$3; if($3==0){zeros=zeros+1}}END{if(NR==0) print \"BAM error\"; else print \"depth:\", sum/NR; print \"zero areas:\", zeros}' 2>&1 | tee -a $log"
+echo "$cmd" | tee -a $log
+#eval "$cmd"
+checkError $?
+
+echo "-> COUNTING READS <-" | tee -a $log
+for gtf in $(ls $genome/*.gtf); do
+	cmd="htseq-count -s reverse -i gene_name -n $running_cores -f bam $output/$finalName $gtf | tee -a $log > $output/Aligned.count.$(basename $gtf).txt"
+	echo "$cmd" | tee -a $log
+	eval "$cmd" | tee -a $log
+	checkError $?
+done
+#/home/spliced/executeTaskEnding.sh $taskID $error
+
+date | tee -a $log
+
+echo Releasing lock | tee -a $log
+rm -f /tmp/${experiment}.lock.pipeline | tee -a $log
