@@ -49,6 +49,7 @@ function newSite(obj) {
       }
       #col1, #col3 {
         width: 10%;
+		overflow: auto;
       }
       #col2 {
         display: flex;
@@ -61,12 +62,13 @@ function newSite(obj) {
       }
       #row1 {
         background-color: #ffffff;
-		overflow: auto;
+		//overflow: auto;
+		overflow: visible;
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		flex-direction: column;
-        height: 45%;
+        //height: 45%;
       }
       #row2 {
 		background-color: rgba(255, 255, 255, 0.8);
@@ -89,16 +91,19 @@ function newSite(obj) {
 
     .button {
       flex-basis: calc(20% - 20px);
-      margin: 10px;
+      //margin: 10px;
+	  margin: 1%;
       border: none;
       border-radius: 20px;
-      padding: 10px 20px;
+      //padding: 10px 20px;
+	  padding: 1% 5%;
       text-align: center;
       font-weight: bold;
       background-color: rgba(0, 120, 255, 1);
       border: 3px solid #00f;
       color: #fff;
-      min-width: 35%;
+      //min-width: 35%;
+	  min-width: fit-content;
     }
 	
 	.button.selected {
@@ -126,7 +131,7 @@ function newSite(obj) {
     .small-image {
       max-width: 10px;
       height: auto;
-      position: absolute;
+      position: inherit;
       top: 0;
       left: 0;
       margin-top: 20px;
